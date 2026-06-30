@@ -1,75 +1,59 @@
-# Project: cxxhazard
-A complete hazard pointer implementation in modern C++ (C++17), with modular design, heavy comment and clean structure.
+# cxxhazard
 
-# Usage
-Here is a simple demo with incomplete code. For a complete program, refers to this [file](test/test01.cpp)
-```
-template <typename T>
-class stack : private cxxhazard::enable_hazard_from_this {
-public:
-	struct node {
-		node *_next;
-		value_type *_data;
-	};
+A small C++17 hazard pointer implementation written as a learning project.
 
-public:
-// constructor/destructor/operator(s)...
+The goal of this project is to study how hazard pointers can be used for safe memory reclamation in lock-free data structures. It includes a basic hazard pointer interface, retired-object reclamation, and a simple stack example.
 
-public:
-// push/size/empty/etc...
+## Example
 
-	bool pop(T &dest)
-	{
-		auto old_head = _head.load();
-		auto hazard = make_hazard();
+A simplified usage pattern:
 
-		do {
-			old_head = hazard.protect(_head);
+```cpp
+bool pop(T& dest)
+{
+    auto hazard = make_hazard();
 
-			if (old_head == nullptr)
-				return false;
+    node* old_head;
+    do {
+        old_head = hazard.protect(_head);
 
-		} while (!_head.compare_exchange_strong(old_head, old_head->_next));
-		hazard.unprotect();
+        if (old_head == nullptr)
+            return false;
 
-		dest = *old_head->_data;
+    } while (!_head.compare_exchange_strong(old_head, old_head->_next));
 
-		retire(old_head, [old_head](){
-			delete old_head->_data;
-			delete old_head;
-		});
+    hazard.unprotect();
 
-		return true;
-	}
+    dest = *old_head->_data;
 
-	bool peek(T &dest)
-	{
-		auto hazard = make_hazard();
-		auto old_head = hazard.protect(_head);
+    retire(old_head, [old_head]() {
+        delete old_head->_data;
+        delete old_head;
+    });
 
-		if (old_head) {
-			dest = *old_head->_data;
-			return true;
-		}
-		return false;
-	}
-
-private:
-	std::atomic<node *> _head;
-};
+    return true;
+}
 ```
 
-# Project Structure
-| File | Purpose |
-| ---------- | --------------- |
-| [hazard.hpp](include/cxxhazard/hazard.hpp) | global header |
-| [fwd.hpp](include/cxxhazard/fwd.hpp) | forward declarations |
-| [resource.hpp](include/cxxhazard/resource.hpp) | internal hazard_ptr data storage/manager |
-| [ptr.hpp](include/cxxhazard/ptr.hpp) | hazard_ptr interface |
-| [reclaim.hpp](include/cxxhazard/reclaim.hpp) | retired node storage |
-| [domain.hpp](include/cxxhazard/domain.hpp) | necessary data storage/base class |
+For a complete example, see [`test/test01.cpp`](test/test01.cpp).
 
-# TODO
-* Add more test unit, more test
-* Provide extra example
-* Better query data structure for resource_pool
+## Project Structure
+
+| File                                             | Purpose                         |
+| ------------------------------------------------ | ------------------------------- |
+| [`hazard.hpp`](include/cxxhazard/hazard.hpp)     | Main public header              |
+| [`ptr.hpp`](include/cxxhazard/ptr.hpp)           | Hazard pointer interface        |
+| [`resource.hpp`](include/cxxhazard/resource.hpp) | Internal hazard pointer storage |
+| [`reclaim.hpp`](include/cxxhazard/reclaim.hpp)   | Retired object reclamation      |
+| [`domain.hpp`](include/cxxhazard/domain.hpp)     | Domain/base class support       |
+| [`fwd.hpp`](include/cxxhazard/fwd.hpp)           | Forward declarations            |
+
+## Status
+
+This project is mainly for studying lock-free memory reclamation. It is not intended to be a production-ready library.
+
+## TODO
+
+* Add more tests
+* Add more examples
+* Improve the internal hazard pointer lookup structure
